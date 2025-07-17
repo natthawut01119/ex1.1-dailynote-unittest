@@ -1,4 +1,7 @@
 import pytest
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from app import app
 from models import User, Note
 from werkzeug.security import generate_password_hash
@@ -75,3 +78,19 @@ def test_delete_note(client, access_token):
     assert res.status_code == 200
     assert res.get_json()["msg"] == "Note deleted!"
     assert Note.objects(id=note.id).first() is None
+
+def test_search_notes(client, access_token):
+    user = User.objects.first()
+    Note(title="Python Tips", content="Use pytest", user=user).save()
+    Note(title="Vue Guide", content="Vue is awesome", user=user).save()
+    Note(title="Random", content="Just a note", user=user).save()
+
+    # ค้นหา title ที่มีคำว่า 'python'
+    res = client.get('/api/notes/search?title=python',
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    data = res.get_json()
+
+    assert res.status_code == 200
+    assert len(data) == 1
+    assert data[0]["title"] == "Python Tips"

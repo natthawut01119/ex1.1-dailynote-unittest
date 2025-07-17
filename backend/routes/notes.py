@@ -40,3 +40,41 @@ def update_note(note_id):
 def delete_note(note_id):
     Note.objects(id=note_id).delete()
     return jsonify({"msg": "Note deleted!"})
+
+
+@notes.route('/notes/<note_id>', methods=['GET'])
+@jwt_required()
+def get_note(note_id):
+    note = Note.objects(id=note_id).first()
+    if not note:
+        return jsonify({"msg": "Note not found"}), 404
+    return jsonify(note), 200
+
+
+@notes.route('/notes/search', methods=['GET'])
+@jwt_required()
+def search_notes():
+    user_id = get_jwt_identity()
+    user = User.objects(id=user_id).first()
+
+    title = request.args.get('title')
+    content = request.args.get('content')
+
+    # กรองโน้ตเฉพาะของผู้ใช้ที่ล็อกอินอยู่
+    query = {'user': user}
+    if title:
+        query['title__icontains'] = title
+    if content:
+        query['content__icontains'] = content
+
+    notes = Note.objects(**query).order_by('-created_at')
+
+    if not notes:
+        return jsonify({"msg": "No matching notes found"}), 404
+
+    return jsonify([{
+        "id": str(note.id),
+        "title": note.title,
+        "content": note.content,
+        "created_at": note.created_at.strftime("%Y-%m-%d %H:%M:%S")
+    } for note in notes]), 200
